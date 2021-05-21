@@ -39,7 +39,7 @@ def test_dde_nn(data_generator, model_nn):
 
     return roc_auc_score(y_label, y_pred), y_pred
 
-
+# This needs to be broken up into different methods. Right now it is 100< lines long
 def main_dde_nn():
     config = dde_NN_config()
     pretrain_epoch = config['pretrain_epoch']
@@ -58,17 +58,14 @@ def main_dde_nn():
     loss_c_history = []
     loss_history = []
     
-    model_nn = dde_NN_Large_Predictor(**config)
-    
-    # if reuse pretrained checkpoint: uncomment the following:
+    model_nn = dde_NN_Large_Predictor(**config)  # I am uncommenting out this to try it
     # path = 'model_pretrain_checkpoint_1.pt'
-    # model_nn = torch.load(path)
+    # model_nn = torch.load(path, 'cpu') # added 'cpu' to this to make it run on only CPUs
+    # model_nn.cuda()
     
-    model_nn.cuda()
-    
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model_nn = nn.DataParallel(model_nn)
+    # if torch.cuda.device_count() > 1:
+    #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #     model_nn = nn.DataParallel(model_nn)
         
     opt = torch.optim.Adam(model_nn.parameters(), lr = lr)
     
@@ -80,8 +77,9 @@ def main_dde_nn():
 
     dataFolder = './data'
 
-    df_unsup = pd.read_csv(dataFolder + '/unsup_dataset.csv', names = ['idx', 'input1_SMILES', 'input2_SMILES', 'type']).drop(0)# pairs dataframe input1_smiles, input2_smiles
-    df_ddi = pd.read_csv('../data/SNAP/sup_train_val.csv')  # ddi dataframe drug1_smiles, drug2_smiles
+    df_unsup = pd.read_csv(r'data\unsup_dataset.csv', names = ['idx', 'input1_SMILES', 'input2_SMILES', 'type']).drop(0) # pairs dataframe input1_smiles, input2_smiles
+    #df_ddi = pd.read_csv(dataFolder + '/BIOSNAP/sup_train_val.csv')  ## ddi dataframe drug1_smiles, drug2_smiles
+    df_ddi = pd.read_csv(r'data\BIOSNAP\sup_train_val.csv')
 
     #5-fold
     kf = KFold(n_splits = 8, shuffle = True, random_state = 3)
@@ -112,6 +110,7 @@ def main_dde_nn():
             v_D = v_D.float().cuda()
             recon, code, score, Z_f, z_D = model_nn(v_D)
             loss_r = recon_loss_coeff * F.binary_cross_entropy(recon, v_D.float())
+            
             loss_p = proj_coeff * (torch.norm(z_D - torch.matmul(code, Z_f)) + lambda1 * torch.sum(torch.abs(code)) / BATCH_SIZE + lambda2 * torch.norm(Z_f, p='fro') / BATCH_SIZE)
             loss = loss_r + loss_p
             
@@ -131,7 +130,7 @@ def main_dde_nn():
             if loss_r < thr:
                 # smaller than certain reconstruction error, -> go to training step
                 break
-            # save pretraining checkpoint for reuse
+        
             if i == int(len_unsup/4):
                 torch.save(model_nn, 'model_pretrain_checkpoint_1.pt')
             if i == int(len_unsup/2):
@@ -142,8 +141,15 @@ def main_dde_nn():
     
     for tr_epo in range(train_epoch):
         for i, (v_D, label) in enumerate(training_generator_sup):
+            print(type(i))
+            print(type(v_D))
+            print(v_D)
+            print(type(label))
+            print(label)
+            adddd = input('press a key to conintue')
             v_D = v_D.float().cuda()
             recon, code, score, Z_f, z_D = model_nn(v_D)
+            adddd = input('press a key to conintue')
             
             label = Variable(torch.from_numpy(np.array(label)).long())
             loss_fct = torch.nn.BCELoss()
@@ -167,8 +173,7 @@ def main_dde_nn():
                     
             if(i % 20 == 0):
                 print('Training at Epoch ' + str(tr_epo) + ' iteration ' + str(i) + ', total loss is ' + '%.3f' % (loss.cpu().detach().numpy()) + ', proj loss is ' + '%.3f' %(loss_p.cpu().detach().numpy()) + ', recon loss is ' + '%.3f' %(loss_r.cpu().detach().numpy()) + ', classification loss is ' + '%.3f' % (loss_c.cpu().detach().numpy()))
-
-                
+            
         with torch.set_grad_enabled(False):
             auc, logits = test_dde_nn(validation_generator_sup, model_nn)
             if auc > max_auc:
@@ -179,68 +184,4 @@ def main_dde_nn():
             print('Test at Epoch '+ str(tr_epo) + ' , AUC: '+ str(auc))
         
     return model_max, loss_c_history, loss_r_history, loss_p_history
-
-
-if __name__ == '__main__':
-    model_max, loss_c, loss_r, loss_p = main_dde_nn()
-    pass
-    params = {'batch_size': 256,
-              'shuffle': True,
-              'num_workers': 6}
     
-    # test set
-    dataFolder = './data'
-
-    df_ddi = pd.read_csv('../data/SNAP/sup_test.csv')  # ddi dataframe drug1_smiles, drug2_smiles
-
-    labels_sup = df_ddi.label.values
-
-    test_set = supData(df_ddi.index.values, labels_sup, df_ddi)
-    test_generator_sup = data.DataLoader(test_set, **params)
-    model_nn = model_max
-    
-    y_pred = []
-    y_label = []
-    model_nn.eval()
-    for i, (v_D, label) in tqdm(enumerate(test_generator_sup)):
-        recon, code, score, Z_f, z_D = model_nn(v_D.float())
-        m = torch.nn.Sigmoid()
-        logits = torch.squeeze(m(score)).detach().cpu().numpy()
-        label_ids = label.to('cpu').numpy()
-        y_label = y_label + label_ids.flatten().tolist()
-        y_pred = y_pred + logits.flatten().tolist()
-    
-    from sklearn.metrics import average_precision_score
-    average_precision_score(y_label, y_pred)
-    from sklearn.metrics import precision_recall_curve
-    from sklearn.utils.fixes import signature
-    average_precision = average_precision_score(y_label, y_pred)
-    precision, recall, _ = precision_recall_curve(y_label, y_pred)
-
-    # In matplotlib < 1.5, plt.fill_between does not have a 'step' argument
-    step_kwargs = ({'step': 'post'}
-                   if 'step' in signature(plt.fill_between).parameters
-                   else {})
-    plt.step(recall, precision, color='b', alpha=0.2,
-             where='post')
-    plt.fill_between(recall, precision, alpha=0.2, color='b', **step_kwargs)
-
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.ylim([0.0, 1.05])
-    plt.xlim([0.0, 1.0])
-    plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(
-              average_precision))
-    
-    from sklearn.metrics import roc_auc_score, precision_recall_curve, roc_curve, auc, confusion_matrix, classification_report
-
-    fpr, tpr, thresholds = roc_curve(y_label, y_pred)
-    auc_score = auc(fpr, tpr)
-
-    plt.figure(1)
-    plt.plot([0, 1], [0, 1], 'k--')
-    plt.plot(fpr, tpr, label='Val (area = {:.3f})'.format(auc_score))
-    plt.xlabel('False positive rate')
-    plt.ylabel('True positive rate')
-    plt.title('ROC curve')
-    plt.legend(loc='best')
