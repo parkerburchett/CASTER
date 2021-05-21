@@ -1,0 +1,3 @@
+WHen you run this file you need to run in the power shell .\venv\Scripts\Activate.ps1
+
+That will put you in the venv with the right modules.
