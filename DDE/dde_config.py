@@ -2,9 +2,9 @@ def dde_NN_config():
 	#draft 1
 	config = {}
 	config['batch_size'] = 256
-	config['input_dim'] = 1722
+	config['input_dim'] = 1722 # I think this refers the number of functional groups extracted -P
 	config['batch_first'] = True
-	config['num_class'] = 2
+	config['num_class'] = 2 # binary classification problem
 	config['LR'] = 1e-3
 	config['train_epoch'] = 3
 	config['pretrain_epoch'] = 1

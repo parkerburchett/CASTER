@@ -71,7 +71,7 @@ def main_dde_nn():
     
     print('--- Data Preparation ---')
     
-    params = {'batch_size': BATCH_SIZE,
+    params = {'batch_size': BATCH_SIZE, # batchsize == 256
               'shuffle': True,
               'num_workers': 6}
 
