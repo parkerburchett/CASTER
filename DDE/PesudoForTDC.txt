@@ -1,0 +1,5 @@
+
+
+1. Get Training Data from TDC Build mechanism to go from that into Vectors
+    a. Need two dictionaries of molecules codecs.txt This is the source of the vectors used in smiles to vecotrs
+    

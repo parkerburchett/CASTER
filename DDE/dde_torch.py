@@ -19,10 +19,13 @@ class dde_NN_Large_Predictor(nn.Sequential):
 		X_entries: eta x eta , f = # substructures
 	'''
 	def __init__(self, **config):
+		"""
+			This points to the things in the config dictionary. That way you can change the size of the molecues
+		"""
 		super(dde_NN_Large_Predictor, self).__init__()
 		self.input_dim = config['input_dim']
 		self.num_class = config['num_class']
-		self.lambda3 = config['lambda3']        
+		self.lambda3 = config['lambda3']         # I don't know what this is
 		self.encode_fc1_dim = config['encode_fc1_dim']
 		self.encode_fc2_dim = config['encode_fc2_dim']
 		self.decode_fc1_dim = config['decode_fc1_dim']
@@ -31,10 +34,12 @@ class dde_NN_Large_Predictor(nn.Sequential):
 		self.predict_out_dim = config['predict_out_dim']
 		self.mag_factor = config['magnify_factor']        
 		# encoder: two layer NN
+
+		# -p I don't know why they have a incode and decode layers. 
 		self.encoder = nn.Sequential(
-			nn.Linear(self.input_dim, self.encode_fc1_dim),
+			nn.Linear(self.input_dim, self.encode_fc1_dim), # generic linear transformation,
 			nn.ReLU(True),
-			nn.Linear(self.encode_fc1_dim, self.encode_fc2_dim)
+			nn.Linear(self.encode_fc1_dim, self.encode_fc2_dim) # generic linear transformation.
 		)
 		# decoder: two layer NN
 		self.decoder = nn.Sequential(
